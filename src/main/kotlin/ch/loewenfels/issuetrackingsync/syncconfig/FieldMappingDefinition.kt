@@ -7,5 +7,6 @@ open class FieldMappingDefinition(
     var targetName: String = "",
     var mapperClassname: String = DirectFieldMapper::class.qualifiedName ?: "",
     var associations: MutableMap<String, String> = mutableMapOf(),
+    var additionalAssociations: MutableMap<String, String> = mutableMapOf(),
     var fieldSkipEvalutors: MutableList<FieldSkippingEvaluatorDefinition> = mutableListOf()
 )

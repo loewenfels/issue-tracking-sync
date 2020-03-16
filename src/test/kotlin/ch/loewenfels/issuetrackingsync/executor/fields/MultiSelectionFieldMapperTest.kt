@@ -16,11 +16,22 @@ class MultiSelectionFieldMapperTest : AbstractSpringTest() {
 
     private val jiraFieldname = "multiSelectCustomFieldJira"
     private val rtcFieldname = "multiSelectCustomFieldRtc"
+    private val associations =
+        mutableMapOf(
+            "fooRtc" to "fooJira",
+            "barRtc" to "barJira"
+        )
+    private val additionalAssociations =
+        mutableMapOf(
+            "fobarRtc" to "fooJira",
+            "barRtc" to "barJira"
+        )
+
 
     @Test
     fun getValue() {
         // arrange
-        val testee = buildTestee()
+        val testee = buildTestee(associations)
         val issue = TestObjects.buildIssue("MK-1")
         val sourceClient =
             TestObjects.buildIssueTrackingClient(TestObjects.buildIssueTrackingApplication("RtcClient"), clientFactory)
@@ -37,7 +48,7 @@ class MultiSelectionFieldMapperTest : AbstractSpringTest() {
     @Test
     fun setValue() {
         // arrange
-        val testee = buildTestee()
+        val testee = buildTestee(associations)
         val issue = TestObjects.buildIssue("MK-1")
         val targetClient =
             TestObjects.buildIssueTrackingClient(TestObjects.buildIssueTrackingApplication("JiraClient"), clientFactory)
@@ -51,7 +62,7 @@ class MultiSelectionFieldMapperTest : AbstractSpringTest() {
     @Test
     fun setValue_oneKnownAndOneUnknownValue_onlyKnownValueSet() {
         // arrange
-        val testee = buildTestee()
+        val testee = buildTestee(associations)
         val issue = TestObjects.buildIssue("MK-1")
         val targetClient =
             TestObjects.buildIssueTrackingClient(TestObjects.buildIssueTrackingApplication("JiraClient"), clientFactory)
@@ -65,7 +76,7 @@ class MultiSelectionFieldMapperTest : AbstractSpringTest() {
     @Test
     fun setValue_oneUnknownValue_noValueSet() {
         // arrange
-        val testee = buildTestee()
+        val testee = buildTestee(associations)
         val issue = TestObjects.buildIssue("MK-1")
         val targetClient =
             TestObjects.buildIssueTrackingClient(TestObjects.buildIssueTrackingApplication("JiraClient"), clientFactory)
@@ -76,16 +87,27 @@ class MultiSelectionFieldMapperTest : AbstractSpringTest() {
         verify(targetClient).setValue(issue, issue, jiraFieldname, arrayListOf<String>())
     }
 
-    private fun buildTestee(): MultiSelectionFieldMapper {
-        val associations =
-            mutableMapOf(
-                "fooRtc" to "fooJira",
-                "barRtc" to "barJira"
-            )
+    @Test
+    fun setValue_additionalAssociationsWithDuplicatedKeys_onlyKnownValueSet() {
+        // arrange
+        val testee = buildTestee(associations, additionalAssociations)
+        val issue = TestObjects.buildIssue("MK-1")
+        val targetClient =
+            TestObjects.buildIssueTrackingClient(TestObjects.buildIssueTrackingApplication("JiraClient"), clientFactory)
+        val value = arrayListOf("fobarRtc")
+        // act
+        testee.setValue(issue, jiraFieldname, issue, targetClient, value)
+        // assert
+        verify(targetClient).setValue(issue, issue, jiraFieldname, arrayListOf("fooJira"))
+    }
 
+    private fun buildTestee(
+        associations: MutableMap<String, String>,
+        additionalAssociations: MutableMap<String, String> = mutableMapOf()
+    ): MultiSelectionFieldMapper {
         val fieldDefinition = FieldMappingDefinition(
             rtcFieldname, jiraFieldname,
-            MultiSelectionFieldMapper::class.toString(), associations
+            MultiSelectionFieldMapper::class.toString(), associations, additionalAssociations
         )
         return MultiSelectionFieldMapper(fieldDefinition)
     }

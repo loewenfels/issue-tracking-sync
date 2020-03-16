@@ -41,18 +41,36 @@ data class Settings(
      */
     private fun mapCommons() =
         actionDefinitions.flatMap { it.fieldMappingDefinitions }.forEach { fldMapping ->
-            fldMapping.associations["#common"]?.let {
-                if (it.endsWith("->reversed")) {
-                    mapCommons(fldMapping, it.substring(0, it.length - 10), true)
+            val suffix = "->reversed"
+            val common = "#common"
+            fldMapping.associations[common]?.let {
+                if (it.endsWith(suffix)) {
+                    fldMapping.associations = getReversedCommons(it, suffix)
                 } else {
-                    mapCommons(fldMapping, it, false)
+                    fldMapping.associations = getCommons(it)
+                }
+            }
+            fldMapping.additionalAssociations[common]?.let {
+                if (it.endsWith(suffix)) {
+                    fldMapping.additionalAssociations = getReversedCommons(it, suffix)
+                } else {
+                    fldMapping.additionalAssociations = getCommons(it)
                 }
             }
         }
 
-    private fun mapCommons(fieldMapping: FieldMappingDefinition, commonName: String, invert: Boolean) {
+    private fun getReversedCommons(commonName: String, suffix: String): MutableMap<String, String> {
+        return getCommons(commonName.substring(0, commonName.length - suffix.length), true)
+    }
+
+    private fun getCommons(commonName: String): MutableMap<String, String> {
+        return getCommons(commonName, false)
+    }
+
+
+    private fun getCommons(commonName: String, invert: Boolean): MutableMap<String, String> {
         (common[commonName] ?: throw IllegalArgumentException("Undefined common expression $commonName")).let {
-            fieldMapping.associations = if (invert) {
+            return if (invert) {
                 it.entries.associate { (k, v) -> v to k }.toMutableMap()
             } else {
                 it

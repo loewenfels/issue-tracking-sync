@@ -252,29 +252,67 @@ The above example maps RTC priority and severity to JIRA priority. The opposite 
 For multi selection fields use the `ch.loewenfels.issuetrackingsync.executor.fields.MultiSelectionFieldMapper`. 
 This mapper uses the `associations` as a matrix to map between these fields. The following example shows a mapping from RTC to Jira:
 ```json
-        {
-          "sourceName": "cantons",
-          "targetName": "customfield_11342",
-          "mapperClassname": "ch.loewenfels.issuetrackingsync.executor.fields.MultiSelectionFieldMapper",
-          "associations": {
-            "Luzern": "LU",
-            "Uri": "UR",
-            "Basel-Stadt": "BS"
-          }
-        }
+{
+  "sourceName": "cantons",
+  "targetName": "customfield_11342",
+  "mapperClassname": "ch.loewenfels.issuetrackingsync.executor.fields.MultiSelectionFieldMapper",
+  "associations": {
+    "Luzern": "LU",
+    "Uri": "UR",
+    "Basel-Stadt": "BS"
+  }
+}
 ```
 The opposite way, from Jira to RTC, would be as follows:
 ```json
-        {
-          "sourceName": "customfield_11342",
-          "targetName": "cantons",
-          "mapperClassname": "ch.loewenfels.issuetrackingsync.executor.fields.MultiSelectionFieldMapper",
-          "associations": {
-            "LU": "Luzern",
-            "UR": "Uri",
-            "BS": "Basel-Stadt"
-          }
-        }
+{
+  "sourceName": "customfield_11342",
+  "targetName": "cantons",
+  "mapperClassname": "ch.loewenfels.issuetrackingsync.executor.fields.MultiSelectionFieldMapper",
+  "associations": {
+    "LU": "Luzern",
+    "UR": "Uri",
+    "BS": "Basel-Stadt"
+  }
+}
+```
+
+To enhance this mapper with additional values, which are only present at one client-side, use the optional `additionalAssociations` matrix.
+Please note that this option will only work with uni-directional unique keys! 
+In the following example the keys "BS" and "BL" will be mapped to "Basel":
+
+```json
+{
+  "sourceName": "customfield_11342",
+  "targetName": "cantons",
+  "mapperClassname": "ch.loewenfels.issuetrackingsync.executor.fields.MultiSelectionFieldMapper",
+  "associations": {
+    "LU": "Luzern",
+    "UR": "Uri",
+    "BS": "Basel"
+  },
+  "additionalAssociations": {
+    "BL": "Basel"
+  }
+}
+```
+
+The following will not work, because the key "BS" is not unique:
+```json
+{
+  "sourceName": "customfield_11342",
+  "targetName": "cantons",
+  "mapperClassname": "ch.loewenfels.issuetrackingsync.executor.fields.MultiSelectionFieldMapper",
+  "associations": {
+    "LU": "Luzern",
+    "UR": "Uri",
+    "BS": "Basel"
+  },
+  "additionalAssociations": {
+    "BS": "Basel-Stadt",
+    "BL": "Basel"
+  }
+}
 ```
 
 The `ch.loewenfels.issuetrackingsync.executor.fields.SingleSelectionFieldMapper` is similar like the above 
