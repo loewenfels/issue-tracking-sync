@@ -1,10 +1,18 @@
 package ch.loewenfels.issuetrackingsync.testcontext
 
-import ch.loewenfels.issuetrackingsync.*
+import ch.loewenfels.issuetrackingsync.Attachment
+import ch.loewenfels.issuetrackingsync.Comment
+import ch.loewenfels.issuetrackingsync.Issue
+import ch.loewenfels.issuetrackingsync.StateHistory
+import ch.loewenfels.issuetrackingsync.executor.SyncActionName
+import ch.loewenfels.issuetrackingsync.executor.actions.SynchronizationAction
+import ch.loewenfels.issuetrackingsync.notification.NotificationObserver
 import ch.loewenfels.issuetrackingsync.syncclient.IssueTrackingClient
 import ch.loewenfels.issuetrackingsync.syncconfig.DefaultsForNewIssue
 import ch.loewenfels.issuetrackingsync.syncconfig.IssueTrackingApplication
+import com.atlassian.jira.rest.client.api.RestClientException
 import com.fasterxml.jackson.databind.JsonNode
+import org.springframework.http.HttpStatus
 import java.time.LocalDateTime
 import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
@@ -153,5 +161,17 @@ open class MockJiraClient(private val setup: IssueTrackingApplication) : IssueTr
 
     override fun setState(internalIssue: Issue, targetState: String) {
         // no-op
+    }
+
+    override fun logException(
+        issue: Issue,
+        exception: Exception,
+        notificationObserver: NotificationObserver,
+        syncActions: Map<SyncActionName, SynchronizationAction>
+    ) {
+        val statusCode = (exception as RestClientException).statusCode.or(0)
+        val responseMessage = HttpStatus.valueOf(statusCode).reasonPhrase
+        val errorMessage = "Jira: $responseMessage ($statusCode)"
+        notificationObserver.notifyException(issue, Exception(errorMessage), syncActions)
     }
 }

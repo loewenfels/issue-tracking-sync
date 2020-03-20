@@ -6,7 +6,10 @@ import ch.loewenfels.issuetrackingsync.Issue
 import ch.loewenfels.issuetrackingsync.Logging
 import ch.loewenfels.issuetrackingsync.StateHistory
 import ch.loewenfels.issuetrackingsync.SynchronizationAbortedException
+import ch.loewenfels.issuetrackingsync.executor.SyncActionName
+import ch.loewenfels.issuetrackingsync.executor.actions.SynchronizationAction
 import ch.loewenfels.issuetrackingsync.logger
+import ch.loewenfels.issuetrackingsync.notification.NotificationObserver
 import ch.loewenfels.issuetrackingsync.syncclient.IssueClientException
 import ch.loewenfels.issuetrackingsync.syncclient.IssueTrackingClient
 import ch.loewenfels.issuetrackingsync.syncconfig.DefaultsForNewIssue
@@ -24,6 +27,7 @@ import com.ibm.team.repository.common.IAuditableHandle
 import com.ibm.team.repository.common.IContent
 import com.ibm.team.repository.common.IContributor
 import com.ibm.team.repository.common.IContributorHandle
+import com.ibm.team.repository.common.TeamRepositoryException
 import com.ibm.team.workitem.client.IAuditableClient
 import com.ibm.team.workitem.client.IWorkItemClient
 import com.ibm.team.workitem.client.WorkItemWorkingCopy
@@ -606,6 +610,21 @@ open class RtcClient(private val setup: IssueTrackingApplication) : IssueTrackin
 
     override fun setTimeValue(internalIssueBuilder: Any, issue: Issue, fieldName: String, timeInMinutes: Number?) {
         setValue(internalIssueBuilder, issue, fieldName, (timeInMinutes?.toLong() ?: 0) * millisToMinutes)
+    }
+
+    override fun logException(
+        issue: Issue,
+        exception: java.lang.Exception,
+        notificationObserver: NotificationObserver,
+        syncActions: Map<SyncActionName, SynchronizationAction>
+    ) {
+        val errorMessage = if (exception is TeamRepositoryException) {
+            "RTC: ${exception.message}"
+        } else {
+            exception.message
+        }
+        logger().debug(errorMessage)
+        notificationObserver.notifyException(issue, Exception(errorMessage), syncActions)
     }
 
     private fun doWithWorkingCopy(originalWorkItem: IWorkItem, consumer: (WorkItemWorkingCopy) -> Unit) {

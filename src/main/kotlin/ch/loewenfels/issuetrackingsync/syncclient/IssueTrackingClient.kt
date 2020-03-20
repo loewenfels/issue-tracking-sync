@@ -4,6 +4,9 @@ import ch.loewenfels.issuetrackingsync.Attachment
 import ch.loewenfels.issuetrackingsync.Comment
 import ch.loewenfels.issuetrackingsync.Issue
 import ch.loewenfels.issuetrackingsync.StateHistory
+import ch.loewenfels.issuetrackingsync.executor.SyncActionName
+import ch.loewenfels.issuetrackingsync.executor.actions.SynchronizationAction
+import ch.loewenfels.issuetrackingsync.notification.NotificationObserver
 import ch.loewenfels.issuetrackingsync.syncconfig.DefaultsForNewIssue
 import com.fasterxml.jackson.databind.JsonNode
 import com.ibm.team.workitem.common.model.IWorkItem
@@ -104,4 +107,6 @@ interface IssueTrackingClient<T> {
     fun getTimeValueInMinutes(internalIssue: Any, fieldName: String): Number
 
     fun setTimeValue(internalIssueBuilder: Any, issue: Issue, fieldName: String, timeInMinutes: Number?)
+
+    fun logException(issue: Issue, exception: Exception, notificationObserver: NotificationObserver, syncActions: Map<SyncActionName, SynchronizationAction>)
 }

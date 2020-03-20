@@ -4,6 +4,9 @@ import ch.loewenfels.issuetrackingsync.Attachment
 import ch.loewenfels.issuetrackingsync.Comment
 import ch.loewenfels.issuetrackingsync.Issue
 import ch.loewenfels.issuetrackingsync.StateHistory
+import ch.loewenfels.issuetrackingsync.executor.SyncActionName
+import ch.loewenfels.issuetrackingsync.executor.actions.SynchronizationAction
+import ch.loewenfels.issuetrackingsync.notification.NotificationObserver
 import ch.loewenfels.issuetrackingsync.syncclient.IssueTrackingClient
 import ch.loewenfels.issuetrackingsync.syncconfig.DefaultsForNewIssue
 import ch.loewenfels.issuetrackingsync.syncconfig.IssueTrackingApplication
@@ -148,5 +151,15 @@ open class MockRtcClient(private val setup: IssueTrackingApplication) : IssueTra
 
     override fun setState(internalIssue: Issue, targetState: String) {
         // no-op
+    }
+
+    override fun logException(
+        issue: Issue,
+        exception: Exception,
+        notificationObserver: NotificationObserver,
+        syncActions: Map<SyncActionName, SynchronizationAction>
+    ) {
+        val errorMessage = "RTC: ${exception.message}"
+        notificationObserver.notifyException(issue, Exception(errorMessage), syncActions)
     }
 }

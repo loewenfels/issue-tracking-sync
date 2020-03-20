@@ -6,11 +6,15 @@ import ch.loewenfels.issuetrackingsync.Issue
 import ch.loewenfels.issuetrackingsync.Logging
 import ch.loewenfels.issuetrackingsync.StateHistory
 import ch.loewenfels.issuetrackingsync.SynchronizationAbortedException
+import ch.loewenfels.issuetrackingsync.executor.SyncActionName
+import ch.loewenfels.issuetrackingsync.executor.actions.SynchronizationAction
 import ch.loewenfels.issuetrackingsync.logger
+import ch.loewenfels.issuetrackingsync.notification.NotificationObserver
 import ch.loewenfels.issuetrackingsync.syncclient.IssueClientException
 import ch.loewenfels.issuetrackingsync.syncclient.IssueTrackingClient
 import ch.loewenfels.issuetrackingsync.syncconfig.DefaultsForNewIssue
 import ch.loewenfels.issuetrackingsync.syncconfig.IssueTrackingApplication
+import com.atlassian.jira.rest.client.api.RestClientException
 import com.atlassian.jira.rest.client.api.domain.IssueField
 import com.atlassian.jira.rest.client.api.domain.IssueFieldId
 import com.atlassian.jira.rest.client.api.domain.TimeTracking
@@ -26,6 +30,7 @@ import org.codehaus.jettison.json.JSONArray
 import org.codehaus.jettison.json.JSONObject
 import org.joda.time.DateTime
 import org.springframework.beans.BeanWrapperImpl
+import org.springframework.http.HttpStatus
 import java.io.ByteArrayInputStream
 import java.net.URI
 import java.time.Instant
@@ -465,5 +470,22 @@ open class JiraClient(private val setup: IssueTrackingApplication) :
         val timeInInt = timeInMinutes?.toInt() ?: 0
         val timeNullable = if (timeInInt > 0) timeInInt else null
         setValue(internalIssueBuilder, issue, fieldName, timeNullable)
+    }
+
+    override fun logException(
+        issue: Issue,
+        exception: java.lang.Exception,
+        notificationObserver: NotificationObserver,
+        syncActions: Map<SyncActionName, SynchronizationAction>
+    ) {
+        val errorMessage = if (exception is RestClientException) {
+            val statusCode = exception.statusCode.or(0)
+            val responseMessage = HttpStatus.valueOf(statusCode).reasonPhrase
+            "Jira: $responseMessage ($statusCode)"
+        } else {
+            exception.message
+        }
+        logger().debug(errorMessage)
+        notificationObserver.notifyException(issue, Exception(errorMessage), syncActions)
     }
 }
