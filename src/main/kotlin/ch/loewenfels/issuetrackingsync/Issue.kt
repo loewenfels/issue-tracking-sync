@@ -10,6 +10,7 @@ data class Issue(val key: String, val clientSourceName: String, val lastUpdated:
     var keyFieldMapping: KeyFieldMapping? = null
     var targetUrl: String? = null
     var hasChanges: Boolean = false
+    var hasTimeChanges: Boolean = false
     var isNew: Boolean = false
 
     /**

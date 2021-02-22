@@ -35,7 +35,16 @@ open class StatusFieldMapper(fieldMappingDefinition: FieldMappingDefinition) : F
             ?: throw IllegalStateException("This mapper expects a previous action to have loaded the target instance")
         val currentStateOfTarget = issueTrackingClient.getState(internalTargetIssue as T)
         logger().info("Current state of source: ${(value.first as String)}, target: $currentStateOfTarget")
-        getStatePath(value.second as List<StateHistory>, currentStateOfTarget).forEach {
+        val states = value.second as List<StateHistory>
+        if (states.isNotEmpty()) {
+            val finalState = states.last()
+            val correspondingStates = (associations[finalState.toState].orEmpty()).split("[,;/]".toRegex())
+            if (correspondingStates.last() == currentStateOfTarget) {
+                // Current state of target is same as source state, so ignore transition
+                return
+            }
+        }
+        getStatePath(states, currentStateOfTarget).forEach {
             logger().info("Attempting to transition to state $it")
             issueTrackingClient.setState(internalTargetIssue as T, it)
             issue.hasChanges = true
@@ -75,17 +84,31 @@ open class StatusFieldMapper(fieldMappingDefinition: FieldMappingDefinition) : F
      * The [associations] can define a comma-separated list of target states. This is useful if a source transition
      * spans multiple transitions on the target side.
      */
-    private fun getCorrespondingStatesInTargetWorld(sourceStateHistory: StateHistory): List<String> =
-        (associations[sourceStateHistory.toState].orEmpty())
-            .split("[,;/]".toRegex())
+    private fun getCorrespondingStatesInTargetWorld(sourceStateHistory: StateHistory): List<String> {
+        val states = associations["${sourceStateHistory.fromState}->${sourceStateHistory.toState}"] ?:
+        associations[sourceStateHistory.toState]
+
+        return (states.orEmpty()).split("[,;/]".toRegex())
+    }
 
     /**
      * Add entries while ensuring that there are no states immediately repeating themselves. Thus
      * `'In Work', 'Interrupted', 'In Work'` is allowed, but `'In Work', 'In Work'` is not
      */
-    private fun addMissingStates(states: Collection<String>, result: MutableList<String>) {
-        states
-            .filter { result.isEmpty() || result.last() != it }
-            .forEach { result.add(it) }
+    private fun addMissingStates(states: List<String>, result: MutableList<String>) {
+        if (result.isEmpty().not()) {
+            val last = result.last()
+
+            if (states.contains(last)) {
+                states.subList(states.indexOf(last) + 1, states.size).forEach { result.add(it) }
+            } else {
+                states
+                    .filter { result.isEmpty() || last != it }
+                    .forEach { result.add(it) }
+            }
+
+        } else {
+            states.forEach { result.add(it) }
+        }
     }
 }

@@ -28,6 +28,7 @@ class TimeSynchronizationFromRtcToJiraAction(actionName: String) : SimpleSynchro
             "timeTracking.timeSpentMinutes",
             "timeTracking.remainingEstimateMinutes"
         )
+        private val ignoreCorrectionState = listOf("Bereit zur Abnahme", "In Abnahme", "Abnahme angehalten", "Resolved", "Closed")
 
         override fun <T> getValue(
             proprietaryIssue: T,

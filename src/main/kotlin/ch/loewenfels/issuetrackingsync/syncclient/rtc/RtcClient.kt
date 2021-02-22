@@ -24,6 +24,7 @@ import com.ibm.team.process.common.IDevelopmentLine
 import com.ibm.team.process.common.IIteration
 import com.ibm.team.process.common.IIterationHandle
 import com.ibm.team.process.common.IProjectArea
+import com.ibm.team.process.common.advice.TeamOperationCanceledException
 import com.ibm.team.repository.client.IItemManager
 import com.ibm.team.repository.client.ITeamRepository
 import com.ibm.team.repository.client.TeamPlatform
@@ -284,9 +285,10 @@ open class RtcClient(private val setup: IssueTrackingApplication) : IssueTrackin
                     workItem.resolution2 = it as Identifier<IResolution>
                 }
                 else -> {
+                    val wValue = workItem.getValue(attribute)
                     if (!issue.hasChanges) {
-                        val wValue = workItem.getValue(attribute)
                         val hasChanges = when {
+                            fieldName == "duration" || fieldName == "timeSpent" -> false
                             wValue is Collection<*> && it is Collection<*> ->!wValue.containsAll(it)
                             wValue is IItemHandle && it is IItemHandle -> !it.sameItemId(wValue)
                             else -> wValue != it
@@ -295,6 +297,12 @@ open class RtcClient(private val setup: IssueTrackingApplication) : IssueTrackin
                             issue.hasChanges = true
                         }
                     }
+                    if (!issue.hasTimeChanges) {
+                        if ((fieldName == "duration" || fieldName == "timeSpent") && wValue != it) {
+                            issue.hasTimeChanges = true
+                        }
+                    }
+
                     workItem.setValue(attribute, it)
                 }
             }
@@ -779,6 +787,7 @@ open class RtcClient(private val setup: IssueTrackingApplication) : IssueTrackin
     override fun setState(internalIssue: IWorkItem, targetState: String) {
         val workflowInfo = workItemClient.findWorkflowInfo(internalIssue, null)
         val workflowActionTowardsTargetState = workflowInfo.getActionIds(internalIssue.state2)
+            .filter { workflowInfo.getStateName(workflowInfo.getActionResultState(it)) == targetState }
             .first { workflowInfo.getStateName(workflowInfo.getActionResultState(it)) == targetState }
             ?: throw IllegalArgumentException("No action found leading to state $targetState")
         doWithWorkingCopy(internalIssue) {
@@ -796,15 +805,22 @@ open class RtcClient(private val setup: IssueTrackingApplication) : IssueTrackin
         notificationObserver: NotificationObserver,
         syncActions: Map<SyncActionName, SynchronizationAction>
     ): Boolean {
-        return when (exception) {
-            is TeamRepositoryException -> {
+        return when {
+            exception is TeamRepositoryException -> {
                 val errorMessage = "RTC: ${exception.message}"
                 logger().debug(errorMessage)
                 notificationObserver.notifyException(issue, Exception(errorMessage), syncActions)
                 return true
             }
-            is ImmutablePropertyException -> {
+            exception is ImmutablePropertyException -> {
                 val errorMessage = "RTC: Immutable property - ${exception.property}"
+                logger().debug(errorMessage)
+                notificationObserver.notifyException(issue, Exception(errorMessage), syncActions)
+                return true
+            }
+            exception.cause is TeamOperationCanceledException -> {
+                val ex = exception.cause as TeamOperationCanceledException
+                val errorMessage = "RTC: ${ex.message}"
                 logger().debug(errorMessage)
                 notificationObserver.notifyException(issue, Exception(errorMessage), syncActions)
                 return true

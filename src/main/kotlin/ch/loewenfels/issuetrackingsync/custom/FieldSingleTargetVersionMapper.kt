@@ -6,9 +6,11 @@ import ch.loewenfels.issuetrackingsync.syncclient.IssueTrackingClient
 import ch.loewenfels.issuetrackingsync.syncclient.jira.JiraClient
 import ch.loewenfels.issuetrackingsync.syncclient.rtc.RtcClient
 import ch.loewenfels.issuetrackingsync.syncconfig.FieldMappingDefinition
+import com.atlassian.jira.rest.client.api.domain.Version
 import com.ibm.team.workitem.common.model.IWorkItem
+import org.codehaus.jettison.json.JSONObject
 
-class FieldTargetVersionMapper(fieldMappingDefinition: FieldMappingDefinition) :
+class FieldSingleTargetVersionMapper(fieldMappingDefinition: FieldMappingDefinition) :
     FieldValueRegexTransformationMapper(fieldMappingDefinition) {
 
     override fun <T> setValue(
@@ -29,22 +31,25 @@ class FieldTargetVersionMapper(fieldMappingDefinition: FieldMappingDefinition) :
         fieldname: String,
         issue: Issue,
         issueTrackingClient: RtcClient,
-        jiraVersions: Any?
+        jiraVersion: Any?
     ) {
         // check if at least one jira version is set
-        if (jiraVersions is List<*> && jiraVersions.filterIsInstance<String>().filterNot { it.isEmpty() }
-                .isNotEmpty()) {
-            val rtcValue: String? = super.getValue(
-                issue.proprietaryTargetInstance as IWorkItem,
-                fieldname,
-                issueTrackingClient,
-                mapOf("(.*)" to "$1")
-            ) as String?
-            val rtcVersion =
-                "^I\\d{4}\\.\\d+ - (\\d\\.\\d{2,3}.*)".toRegex().find(rtcValue ?: "")?.groupValues?.get(1) ?: ""
-            if (jiraVersions.contains(rtcVersion).not()) {
-                mergeToRtc(jiraVersions, issue, issueTrackingClient, proprietaryIssueBuilder, fieldname)
+        if (jiraVersion is JSONObject) {
+            val jiraVersionName = if (jiraVersion.has("name")) jiraVersion.get("name") as String else null
+            jiraVersionName?.let {
+                val rtcValue: String? = super.getValue(
+                    issue.proprietaryTargetInstance as IWorkItem,
+                    fieldname,
+                    issueTrackingClient,
+                    mapOf("(.*)" to "$1")
+                ) as String?
+                val rtcVersion =
+                    "^I\\d{4}\\.\\d+ - (\\d\\.\\d{2,3}.*)".toRegex().find(rtcValue ?: "")?.groupValues?.get(1) ?: ""
+                if (it != rtcVersion) {
+                    mergeToRtc(it, issue, issueTrackingClient, proprietaryIssueBuilder, fieldname)
+                }
             }
+
         }
     }
 
@@ -57,24 +62,16 @@ class FieldTargetVersionMapper(fieldMappingDefinition: FieldMappingDefinition) :
         (issue.proprietarySourceInstance as com.atlassian.jira.rest.client.api.domain.Issue).status.name
 
     private fun mergeToRtc(
-        jiraVersions: List<*>,
+        jiraVersion: String,
         issue: Issue,
         issueTrackingClient: RtcClient,
         proprietaryIssueBuilder: Any,
         fieldname: String
     ) {
-        val sortedVersions = jiraVersions.filterIsInstance<String>()///
-            .map { createVersion(it) }
-            .filterNotNull()
-            .sorted()
-        val jiraVersionToSync = sortedVersions.firstOrNull()?.toString()
-        checkNotNull(jiraVersionToSync) {
-            "No valid version ($jiraVersions) for issue ${issue.key} found."
-        }
         val mappedRtcVersion = issueTrackingClient.getAllDeliverables()
             .map { it.name }
-            .firstOrNull { it.endsWith(jiraVersionToSync) }
-        checkNotNull(mappedRtcVersion) { "The version $jiraVersionToSync is not yet defined for RTC." }
+            .firstOrNull { it.endsWith(jiraVersion) }
+        checkNotNull(mappedRtcVersion) { "The version $jiraVersion is not yet defined for RTC." }
         super.setValue(proprietaryIssueBuilder, fieldname, issue, issueTrackingClient, mappedRtcVersion)
     }
 
@@ -139,7 +136,7 @@ class FieldTargetVersionMapper(fieldMappingDefinition: FieldMappingDefinition) :
             } else if (this.major != other.major) {
                 return this.major - other.major
             } else if (this.getBugFixOrZero() != other.getBugFixOrZero()) {
-                return other.getBugFixOrZero() - this.getBugFixOrZero()
+                return this.getBugFixOrZero() - other.getBugFixOrZero()
             }
             return 0
         }

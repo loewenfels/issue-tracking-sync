@@ -25,12 +25,7 @@ class MultipleTargetIssuesIgnoreWhenFieldsPreAction(definition: PreActionDefinit
             }
 
             if (issues.size > 1 && availableIssues.size == 1)
-                issue.proprietaryTargetInstance = targetClient.getProprietaryIssue(
-                        targetClient.getValue(
-                                availableIssues[0],
-                                keyFieldMapping.getTargetFieldname()
-                        ).toString()
-                )
+                issue.proprietaryTargetInstance = availableIssues[0]
         }
     }
 

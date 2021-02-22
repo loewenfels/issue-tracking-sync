@@ -188,11 +188,25 @@ open class JiraClient(private val setup: IssueTrackingApplication) :
                     val finalValue = when (fieldName) {
                         "priorityId" -> (getValue(proprietaryJiraIssue, "priority") as IdentifiableEntity<Long>).id
                         "issueTypeId" -> (getValue(proprietaryJiraIssue, "issueType") as IdentifiableEntity<Long>).id
+                        "fixVersions" -> {
+                            val names = getValue(proprietaryJiraIssue, "fixVersions")
+                            if (null != names) {
+                                val projectKey: String? = proprietaryJiraIssue.project?.key
+                                JiraMetadata.getVersionEntity(names as ArrayList<String>, jiraRestClient, projectKey)
+                            } else {
+                                null
+                            }
+                        }
                         "affectedVersions" -> {
-                            val names = (getValue(proprietaryJiraIssue, "affectedVersions") as ArrayList<Version>)
-                                    .map { version -> version.name }
-                            val projectKey: String? = proprietaryJiraIssue.project?.key
-                            JiraMetadata.getVersionEntity(names, jiraRestClient, projectKey)
+                            val names = getValue(proprietaryJiraIssue, "affectedVersions")
+                            if (null != names) {
+                                val stringNames = (names as ArrayList<Version>)
+                                .map { version -> version.name }
+                                val projectKey: String? = proprietaryJiraIssue.project?.key
+                                JiraMetadata.getVersionEntity(stringNames, jiraRestClient, projectKey)
+                            } else {
+                                null
+                            }
                         }
                         else -> getValue(proprietaryJiraIssue, fieldName)
                     }
@@ -207,17 +221,22 @@ open class JiraClient(private val setup: IssueTrackingApplication) :
                         else -> finalValue != it
                     }
 
-                    if (hasChanges) {
-                        log?.onChangeEqual?.get(fieldName)?.let { logMapping ->
+                    val onEqualOperations = if (issue.isNew)  log?.onCreateEqual else log?.onChangeEqual
+
+                    if (issue.isNew || hasChanges) {
+                        onEqualOperations?.get(fieldName)?.let { logMapping ->
                             logMapping[value]?.let { message ->
                                 issue.notifyMessages.add(
-                                        message
-                                                .replace("\${key}", proprietaryJiraIssue.key)
-                                                .replace("\${source.url}", issue.sourceUrl?.let { url -> "<$url|${issue.key}>" } ?: issue.key)
-                                                .replace("\${target.url}", issue.targetUrl?.let { url -> "<$url|${issue.targetKey ?: "Issue"}>" } ?: issue.targetKey ?: "Issue")
+                                    message
+                                        .replace("\${key}", proprietaryJiraIssue.key)
+                                        .replace("\${source.url}", issue.sourceUrl?.let { url -> "<$url|${issue.key}>" } ?: issue.key)
+                                        .replace("\${target.url}", issue.targetUrl?.let { url -> "<$url|${issue.targetKey ?: "Issue"}>" } ?: issue.targetKey ?: "Issue")
                                 )
                             }
                         }
+                    }
+
+                    if (hasChanges) {
                         issue.hasChanges = true
                     }
                 }
@@ -228,9 +247,10 @@ open class JiraClient(private val setup: IssueTrackingApplication) :
                     ?: throw IllegalStateException("Need a target issue for custom fields"))
                 if (fieldName.startsWith("timeTracking.") && it is TimeTracking) {
                     setInternalFieldValue(internalIssueBuilder, IssueFieldId.TIMETRACKING_FIELD.id, it)
-                    hasChanges = {
-                        TimeTrackingComparator(getValue(targetInternalIssue, "timeTracking") as TimeTracking, it)
-                                .notEquals()
+                    hasChanges = { false }
+                    if (TimeTrackingComparator(getValue(targetInternalIssue, "timeTracking") as TimeTracking, it)
+                            .notEquals()) {
+                        issue.hasTimeChanges = true
                     }
                 } else if (fieldName == "labels" && value is List<*>) {
                     setInternalFieldValue(internalIssueBuilder, IssueFieldId.LABELS_FIELD.id, value)
@@ -290,6 +310,11 @@ open class JiraClient(private val setup: IssueTrackingApplication) :
         return when (fieldName) {
             "priorityId" -> JiraMetadata.getPriorityId(value?.toString() ?: "", jiraRestClient)
             "issueTypeId" -> JiraMetadata.getIssueTypeId(value?.toString() ?: "", jiraRestClient)
+            "fixVersions" -> JiraMetadata.getVersionEntity(
+                if (value is List<*>) value else listOf(value),
+                jiraRestClient,
+                projectKey
+            )
             "affectedVersions" -> JiraMetadata.getVersionEntity(
                 if (value is List<*>) value else listOf(value),
                 jiraRestClient,
@@ -305,7 +330,7 @@ open class JiraClient(private val setup: IssueTrackingApplication) :
             "versions" == fieldName -> getFirstVersion(value)
             "resolution" == fieldName -> (value as Resolution).name
             "fixVersions" == fieldName -> (value as List<*>).map { (it as Version).name }
-            value is JSONObject -> value.get("value")
+            value is JSONObject && value.has("value") -> value.get("value")
             else -> value
         }
     }
@@ -462,7 +487,8 @@ open class JiraClient(private val setup: IssueTrackingApplication) :
             return value.filterIsInstance<String>()
         }
         if (value is JSONObject) {
-            return listOf(value["value"].toString())
+            val filedValue = if (value.has("value")) value.getString("value") else value.getString("name")
+            return listOf(filedValue)
         }
         val fieldId = internalIssue.getField(fieldName)?.name ?: "no corresponding fieldId"
         throw IllegalArgumentException("The field $fieldName ($fieldId) was expected to return an array, got $value instead. Did you forget to configure the MultiSelectionFieldMapper?")
@@ -583,6 +609,13 @@ open class JiraClient(private val setup: IssueTrackingApplication) :
                     ComplexIssueInputFieldValue.with("id", "-1")
                 else
                     ComplexIssueInputFieldValue.with("value", value.toString())
+                setInternalFieldValue(internalIssueBuilder, fld.id, complexValue)
+            }
+            "version" -> {
+                val complexValue = if (value == "null")
+                    ComplexIssueInputFieldValue.with("id", "-1")
+                else
+                    ComplexIssueInputFieldValue.with("name", if (value is ArrayList<*>) value.last().toString() else value.toString())
                 setInternalFieldValue(internalIssueBuilder, fld.id, complexValue)
             }
             "any" -> internalIssueBuilder.setFieldValue(fld.id, value)
@@ -735,7 +768,7 @@ open class JiraClient(private val setup: IssueTrackingApplication) :
                             .map {
                                 it.errorMessages.stream().map { it2 -> it2.toString() }.collect(Collectors.joining("\n")) +
                                         "\n" +
-                                        it.errors.values.stream().collect(Collectors.joining("\n"))
+                                        it.errors.map { error -> "${error.key} - ${error.value}" }.joinToString("\n")
                             }.collect(Collectors.joining("\n"))
                 }
                 return "Jira: $responseMessage ($statusCode)\n$additionalPhrase"
@@ -782,7 +815,7 @@ open class JiraClient(private val setup: IssueTrackingApplication) :
         private fun build(t: TimeTracking): TimeTracking {
             return TimeTracking(
                     if (t.originalEstimateMinutes != null) t.originalEstimateMinutes else 0,
-                    if (t.remainingEstimateMinutes != null) t.remainingEstimateMinutes else 0,
+                    if (t.remainingEstimateMinutes != null) t.remainingEstimateMinutes else t.originalEstimateMinutes,
                     if (t.timeSpentMinutes != null) t.timeSpentMinutes else 0
             )
         }

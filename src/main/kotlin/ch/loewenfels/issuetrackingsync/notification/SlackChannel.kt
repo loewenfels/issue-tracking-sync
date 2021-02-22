@@ -51,6 +51,10 @@ class SlackChannel(properties: NotificationChannelProperties) : NotificationChan
             }
             sendMessage(message.trim())
         }
+        if (issue.hasTimeChanges) {
+            sendMessage("Synchronized issue $source to $target (time synchronization)")
+            issue.hasTimeChanges = false
+        }
         issue.notifyMessages.forEach { sendMessage(it) }
     }
 

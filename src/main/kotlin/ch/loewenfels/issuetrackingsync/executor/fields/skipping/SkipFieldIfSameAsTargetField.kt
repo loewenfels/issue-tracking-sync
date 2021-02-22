@@ -7,6 +7,7 @@ import ch.loewenfels.issuetrackingsync.syncconfig.FieldSkippingEvaluatorDefiniti
 class SkipFieldIfSameAsTargetField(fieldSkippingEvaluatorDefinition: FieldSkippingEvaluatorDefinition) :
         FieldSkippingEvaluator(fieldSkippingEvaluatorDefinition) {
     val properties: Map<String, Any> = fieldSkippingEvaluatorDefinition.properties
+    val associations: Map<String, Any> = fieldSkippingEvaluatorDefinition.associations
 
     override fun <T> hasFieldToBeSkipped(
             issueClient: IssueTrackingClient<in T>,
@@ -18,10 +19,17 @@ class SkipFieldIfSameAsTargetField(fieldSkippingEvaluatorDefinition: FieldSkippi
         @Suppress("UNCHECKED_CAST")
         val propIssue = issue.proprietaryTargetInstance as? T
         val field = properties["field"]
+
+        var valueToCompare = sourceValue
+        val associationKey = sourceValue ?: "null"
+        if (associations.containsKey(associationKey)) {
+            valueToCompare = associations[associationKey as String]
+        }
+
         if (field is String) {
             val fieldValue: Any? = propIssue?.let { issueClient.getValue(it, field) }
 
-            return sourceValue == fieldValue
+            return valueToCompare == fieldValue
         }
         error("This class expects a property 'field' as a compare target field")
     }

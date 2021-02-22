@@ -41,16 +41,14 @@ data class Settings(
      */
     private fun mapCommons() =
         actionDefinitions.flatMap { it.fieldMappingDefinitions }.forEach { fldMapping ->
-            fldMapping.associations["#common"]?.split(",")?.map(String::trim)?.forEach {
-                if (it.endsWith("->reversed")) {
-                    mapCommons(fldMapping, it.substring(0, it.length - 10), true)
-                } else {
-                    mapCommons(fldMapping, it, false)
-                }
+            mapAssociations(fldMapping)
+
+            fldMapping.fieldSkipEvalutors.map { fldSkipEvaluator ->
+                mapAssociations(fldSkipEvaluator)
             }
         }
 
-    private fun mapCommons(fieldMapping: FieldMappingDefinition, commonName: String, invert: Boolean) {
+    private fun mapCommons(fieldMapping: AssociationsFieldDefinition, commonName: String, invert: Boolean) {
         (common[commonName] ?: throw IllegalArgumentException("Undefined common expression $commonName")).let {
             fieldMapping.associations.remove("#common")
             fieldMapping.associations.putAll(
@@ -62,4 +60,15 @@ data class Settings(
             )
         }
     }
+
+    private fun mapAssociations(fieldMapping: AssociationsFieldDefinition) {
+        fieldMapping.associations["#common"]?.split(",")?.map(String::trim)?.forEach {
+            if (it.endsWith("->reversed")) {
+                mapCommons(fieldMapping, it.substring(0, it.length - 10), true)
+            } else {
+                mapCommons(fieldMapping, it, false)
+            }
+        }
+    }
+
 }

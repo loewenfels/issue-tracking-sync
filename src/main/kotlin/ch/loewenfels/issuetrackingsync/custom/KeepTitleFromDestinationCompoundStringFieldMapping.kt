@@ -27,7 +27,7 @@ class KeepTitleFromDestinationCompoundStringFieldMapping(fieldMappingDefinition:
                 val oldVal = (issueTrackingClient.getValue(issue.proprietaryTargetInstance as T, fieldname) ?: "").toString()
                 if (null != anchorOpen && null != anchorClose) {
                     val indexOfOpen = oldVal.indexOf(anchorOpen)
-                    val indexOfClose = oldVal.indexOf(anchorClose)
+                    val indexOfClose = oldVal.lastIndexOf(anchorClose)
                     if (indexOfOpen > -1 && indexOfClose > -1) {
                         val sectionFieldNameValue = sections[fieldname] ?: ""
                         sections[fieldname] = oldVal.replaceRange(
@@ -39,11 +39,13 @@ class KeepTitleFromDestinationCompoundStringFieldMapping(fieldMappingDefinition:
                         var preserveOldValue = oldVal
                         val catchAll = associations[""]!!
                         val indexOf = oldVal.indexOf(catchAll)
+                        var oldValueComment = sections[fieldname]
                         if (indexOf >= 0) {
+                            oldValueComment = oldVal.substring(0, indexOf).trim()
                             preserveOldValue = oldVal.substring(indexOf + catchAll.length)
                         }
 
-                        sections[fieldname] = "$preserveOldValue\r\n\r\n$anchorOpen\r\n\r\n${sections[fieldname]}\r\n\r\n$anchorClose"
+                        sections[fieldname] = "$preserveOldValue\r\n\r\n$anchorOpen\r\n\r\n${oldValueComment}\r\n\r\n$anchorClose"
                     } else {
                         sections[fieldname] = "$oldVal\r\n\r\n$anchorOpen\r\n\r\n${sections[fieldname]}\r\n\r\n$anchorClose"
                     }

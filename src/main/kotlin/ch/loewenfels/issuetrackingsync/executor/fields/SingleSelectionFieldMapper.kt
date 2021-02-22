@@ -13,6 +13,7 @@ import ch.loewenfels.issuetrackingsync.syncconfig.FieldMappingDefinition
  *  configured for both clients. This implies that both client-configuration are a mirrored version of each other.
  */
 class SingleSelectionFieldMapper(fieldMappingDefinition: FieldMappingDefinition) : FieldMapper {
+    private val keyFallback = "*"
     private val associations: Map<String, String> = fieldMappingDefinition.associations
 
     override fun <T> getValue(
@@ -29,11 +30,22 @@ class SingleSelectionFieldMapper(fieldMappingDefinition: FieldMappingDefinition)
         value: Any?
     ) {
         val associationKey = value ?: "null"
-        if (associations.containsKey(associationKey)) {
-            val result = associations[associationKey as String]
+        val result = computeValue(associationKey as String)
+        if (null !== result) {
             issueTrackingClient.setValue(proprietaryIssueBuilder, issue, fieldname, result)
         } else {
             issue.workLog.add("Cannot update $fieldname, there is not association entry for $associationKey")
         }
+    }
+
+    private fun computeValue(key: String): String? {
+        if (associations.containsKey(key)) {
+            return associations[key]
+        }
+        if (associations.containsKey(keyFallback)) {
+            return associations[keyFallback]
+        }
+
+        return null
     }
 }
