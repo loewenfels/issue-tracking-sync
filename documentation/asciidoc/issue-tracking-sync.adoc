@@ -1,0 +1,21 @@
+= Issue Tracking Sync
+
+// tag::overview[]
+== Main Features
+
+_Issue Tracking Sync_ is an open source project which synchronizes issues between tracking platforms.
+It's generic and easy to configure.
+It runs in a _java virtual machine_.
+
+== User Information
+
+* Documentation: <<business-view.adoc#_top,Business View>>
+* Support: https://github.com/loewenfels/issue-tracking-sync/issues[project issues page]
+
+== Developer Information
+
+* Documentation: <<development-view.adoc#_top,Development View>>
+* Sources: https://github.com/loewenfels/issue-tracking-sync
+* Tech stack: kotlin, gradle, jdk11, jira-rest-client, rtc-java-client, spring-boot, activeMQ, asciidoc
+* Artefacts: jar
+// end::overview[]

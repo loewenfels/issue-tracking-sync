@@ -1,0 +1,33 @@
+[#_top]
+= Development View
+:toc:
+
+== Overview
+
+.Basic interaction with other systems and users
+plantuml::resources/level0.puml[png]
+
+=== Getting started
+
+<<development-getting-started.adoc#_top,Go here for getting started.>>
+
+=== Build with Docker
+
+This project is built by a multi-stage docker build.
+It uses a docker container with the right build environment.
+Afterwards it creates the final container containing the _tracking sync applications_ and its `settings.yml`.
+
+=== Log
+
+The application writes its logfiles in the folder `/root`.
+
+== Components
+
+.Insight view
+plantuml::resources/level1.puml[png]
+
+=== Package sysconfig
+
+include::development-configuration.adoc[tag=sysconfig-overview]
+
+See <<development-configuration.adoc#_top, Development Configuration>> for more details.

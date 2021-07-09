@@ -1,0 +1,45 @@
+@startuml
+
+title Level 1 view of IGS Change and Defect Synchronizer
+
+cloud Loepa {
+    package [igs-change-and-defect-synchronizer] as pi #ffd {}
+    package [configuration] as pc #ffd {}
+
+    note top of pi : Project finally builds at Loepa
+
+    note left of gh : Customized submodules are built at Loepa
+}
+
+cloud GitHub as gh{
+    package [issue-tracking-sync] as pt #ffd {
+        package [jira-client] as pj #ffd {}
+        package [rtc-client] as pr #ffd {}
+        package [custom-mapper] as pm #ffd {}
+        package [framework] as ps #ffd {}
+
+        note top of ps : OS part is built at GitHub
+        note bottom of pj : cannot built at GitHub
+        note bottom of pr : cannot built at GitHub
+        note bottom of pm : cannot built at GitHub
+    }
+}
+
+pi ..> pt
+pi ..> pc
+
+
+ps <.. pj
+ps <.. pr
+ps <.. pm
+pj <.. pm
+pr <.. pm
+
+object atlassian #888
+object rtc #888
+pj ...> atlassian
+pr ...> rtc
+
+Caption issue-tracking-sync is split into submodules at GitHub
+
+@enduml

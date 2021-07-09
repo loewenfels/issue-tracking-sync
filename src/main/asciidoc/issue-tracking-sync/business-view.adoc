@@ -1,8 +1,0 @@
-[#_top]
-= Business View
-:toc:
-
-== Overview
-
-.Basic interaction with other systems and users
-plantuml::../resources/level0.puml[png]

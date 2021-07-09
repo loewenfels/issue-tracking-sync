@@ -1,0 +1,28 @@
+= Action Definitions
+
+An action definition represents a synchronization sequence, similar to a macro.
+Typically, multiple field mappers are combined to define an action.
+Multiple actions can then be stringed together to form a synchronization flow.
+By defining actions separately, they can be re-used in multiple flows.
+
+== SimpleSynchronizationAction
+
+This action reads a list of `fieldMappingDefinitions`.
+
+[source,yaml]
+----
+include::../../../framework/src/test/resources/settings.yml[tag=actionDefinitions]
+----
+
+== CommentsSynchronizationAction
+
+This action adds all comments present in the source client but missing on the target (equality is based on source comment text being found in target comment text or vice versa)
+
+== AttachmentsSynchronizationAction
+
+This action adds all attachments present in the source client but missing on the target (equality is based on content hash) == StateSynchronizationAction This *Experimental feature* updates the state of the given Issue/WorkItem.
+Master is the client with the newest changes.
+Currently, only Jira-Issues will be synchronized.
+RTC WorkItems will be synchronized in future releases.
+
+Hint: if comment visibility is an issue, make sure the users defined in `trackingApplications` have access only to the comments which should be synchronized.

@@ -1,0 +1,93 @@
+[#_top]
+= Development Configuration
+:toc:
+
+//tag::overview[]
+There are two configuration files:
+
+* `application.yml` sets up the spring application, and notification
+* `settings.yml` contains the synchronization configuration
+//end::overview[]
+
+== Application configuration
+
+The application will look for a file named `application.properties` or `application.yml` in the `./config` subdirectory of the current directory.
+Place a file there, and define the path to your `settings.yml` along with application configuration:
+
+[source,yaml]
+include::../../framework/src/test/resources/application-test.yml[]
+
+Beware that setting username, subject, and avatar only works on legacy Slack webhooks.
+
+== Synchronization configuration
+
+=== Domain `ch.loewenfels.issuetrackingsync.syncconfig`
+
+//tag::sysconfig-overview[]
+The setup of all tracking synchronizations is serialized in a `settings.yml` file.
+The exact location of that file is set in `application.yml`
+
+.The configuration is very easy and straight forward
+plantuml::resources/level2-settings.puml[png]
+
+IssueTrackingApplication::
+include::../../framework/src/main/kotlin/ch/loewenfels/issuetrackingsync/syncconfig/IssueTrackingApplication.kt[tag=overview]
+
+SyncFlowDefinition::
+include::../../framework/src/main/kotlin/ch/loewenfels/issuetrackingsync/syncconfig/SyncFlowDefinition.kt[tag=overview]
+
+SyncActionDefinition::
+include::../../framework/src/main/kotlin/ch/loewenfels/issuetrackingsync/syncconfig/SyncActionDefinition.kt[tag=overview]
+
+FieldMappingDefinition::
+include::../../framework/src/main/kotlin/ch/loewenfels/issuetrackingsync/syncconfig/FieldMappingDefinition.kt[tag=overview]
+//end::sysconfig-overview[]
+
+=== Details of `settings.yml`
+
+==== `earliestSyncDate`
+
+Optionally at top level, set a `earliestSyncDate` in the format `yyyy-MM-ddTHH:mm:ss`.
+If provided, polling will initially seek for issues updated after `earliestSyncDate`.
+If nothing is defined, polling will start with `application start`.
+
+[source,yaml]
+include::../../framework/src/test/resources/settings.yml[tag=earliestSyncDate]
+
+==== `trackingApplications`
+
+Define the basic issue tracking applications in use in the section `trackingApplications` of the settings.json
+
+[source,yaml]
+include::../../framework/src/test/resources/settings.yml[tag=trackingApplications]
+
+The currently defined client implementations are:
+
+- `ch.loewenfels.issuetrackingsync.syncclient.jira.JiraClient`
+- `ch.loewenfels.issuetrackingsync.syncclient.rtc.RtcClient`
+
+==== `fieldMappingDefinitions`
+
+A field mapping definition works on the smallest possible synchronization level, typically a single field.
+The `fieldMappingDefinitions` allows for a quite generic approach to synchronizing simple fields.
+
+[source,yaml]
+include::../../framework/src/test/resources/settings.yml[tag=fieldMappingDefinitions]
+
+=== Available Fields in RTC
+
+include::resources/table-available_fields_in_rtc.adoc[]
+
+On RTC additionally, custom fields can be read and written using the internal FQN (e.g. `ch.loewenfels.team.workitem.attribute.defectdescription`).
+
+=== Available Fields in Jira
+
+include::resources/table-available_fields_in_jira.adoc[]
+
+On Jira additionally, custom fields can be read and written using the internal name (like `customfield_123456`) or the display name (like `Customer reference`).
+
+
+include::resources/config-field_mapper.adoc[leveloffset=1]
+include::resources/config-association.adoc[leveloffset=1]
+include::resources/config-action.adoc[leveloffset=1]
+include::resources/config-flow.adoc[leveloffset=1]

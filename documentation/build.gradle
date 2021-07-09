@@ -1,0 +1,31 @@
+plugins {
+    id 'org.asciidoctor.jvm.convert' version '3.1.0'
+    id 'org.asciidoctor.jvm.gems' version '3.1.0'
+}
+
+repositories {
+    mavenCentral()
+}
+
+asciidoctor {
+    sourceDir file('asciidoc')
+    baseDir file('asciidoc')
+    sources {
+        include 'issue-tracking-sync.adoc',
+            'business-view.adoc',
+            'development-view.adoc',
+            'development-configuration.adoc',
+            'development-getting-started.adoc'
+    }
+    outputDir file('build/docs')
+}
+
+asciidoctorj {
+    modules {
+        diagram {
+            version '2.1.2'
+        }
+    }
+}
+
+defaultTasks 'asciidoctor'

@@ -1,57 +1,90 @@
-import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+import org.springframework.boot.gradle.tasks.run.BootRun
 
 plugins {
-    id("java")
-    id("org.jetbrains.kotlin.jvm") version "1.3.72"
-    id("org.springframework.boot") version "2.2.6.RELEASE"
-    id("io.spring.dependency-management") version "1.0.9.RELEASE"
-    id("com.github.johnrengelman.shadow") version "5.2.0"
     id("io.gitlab.arturbosch.detekt") version "1.5.1"
+    id("io.spring.dependency-management") version "1.0.11.RELEASE"
+    id("org.jetbrains.kotlin.jvm") version "1.5.10"
+    id("org.springframework.boot") version "2.5.0"
+    id("maven-publish")
 }
 
-group = "ch.loewenfels.issuetrackingsync"
-version = "1.0-SNAPSHOT"
-val springProfile = "test"
-java.sourceCompatibility = JavaVersion.VERSION_11
-// Atlassian JIRA and IBM RTC JARs are not available on maven central
-// you'll need to set this property in your $HOME/.gradle/gradle.properties file to point to a maven repo holding these
-// JARs. https://packages.atlassian.com/maven-public/ might work for JIRA
-val repositoryIssueTrackingJars: String by project
-repositories {
-    mavenCentral()
-    jcenter()
-    maven {
-        url = uri(repositoryIssueTrackingJars)
-        isAllowInsecureProtocol = true
+allprojects {
+    apply(plugin = "java")
+    apply(plugin = "java-library")
+    apply(plugin = "java-test-fixtures")
+    apply(plugin = "org.jetbrains.kotlin.jvm")
+    apply(plugin = "io.spring.dependency-management")
+    apply(plugin = "maven-publish")
+
+
+    group = "ch.loewenfels.issuetrackingsync"
+    version = "2.0-SNAPSHOT"
+
+    java {
+        withSourcesJar()
+        sourceCompatibility = JavaVersion.VERSION_11
+    }
+
+    repositories {
+        mavenCentral()
+        maven { url = uri("https://packages.atlassian.com/mvn/maven-external/") }
+    }
+
+    dependencies {
+        implementation(kotlin("stdlib"))
+
+        testImplementation("org.hamcrest:hamcrest:2.2")
+        testImplementation("org.junit.jupiter:junit-jupiter-api:5.7.2")
+        testImplementation("org.springframework.boot:spring-boot-starter-test") {
+            exclude(module = "junit-vintage-engine")
+        }
+        testImplementation("org.mockito:mockito-core:3.10.0")
+        testImplementation("org.springframework.security:spring-security-test")
+
+        testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.7.2")
+    }
+
+    tasks.withType<Test> {
+        useJUnitPlatform()
+    }
+
+    tasks.withType<KotlinCompile> {
+        kotlinOptions {
+            freeCompilerArgs = listOf("-Xjsr305=strict")
+            jvmTarget = "11"
+        }
+    }
+
+    publishing {
+        publications {
+            create<MavenPublication>("mavenJava") {
+                artifactId = project.name
+                from(components["java"])
+                versionMapping {
+                    usage("java-api") {
+                        fromResolutionOf("runtimeClasspath")
+                    }
+                    usage("java-runtime") {
+                        fromResolutionResult()
+                    }
+                }
+                pom {
+                    name.set("Issue Tracking Sync")
+                    scm {
+                        connection.set("scm:git:https://github.com/loewenfels/issue-tracking-sync.git")
+                        developerConnection.set("scm:git:https://github.com/loewenfels/issue-tracking-sync.git")
+                        url.set("https://github.com/loewenfels/issue-tracking-sync")
+                    }
+                }
+            }
+        }
     }
 }
 
 dependencies {
-    implementation("org.springframework.boot:spring-boot-starter-activemq")
-    implementation("org.apache.activemq:activemq-spring")
-    implementation("org.springframework.boot:spring-boot-starter-security")
-    implementation("org.springframework.boot:spring-boot-starter-web")
-    implementation("org.springframework.boot:spring-boot-configuration-processor")
-    implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
-    implementation("com.fasterxml.jackson.dataformat:jackson-dataformat-yaml")
-    implementation("org.jetbrains.kotlin:kotlin-reflect")
-    implementation("org.jetbrains.kotlin:kotlin-stdlib")
-    implementation("com.ibm.team.rtc:plain-java-client:6.0.3")
-    implementation("com.atlassian.jira:jira-rest-java-client-core:5.1.0-476bd700")
-    implementation("io.atlassian.fugue:fugue:4.7.2")
-    implementation("org.jsoup:jsoup:1.13.1")
-    implementation("com.atlassian.renderer:atlassian-renderer:8.0.5") {
-        exclude("javax.activation:activation:1.0.2")
-    }
-    implementation("javax.activation:activation:1.1")
-    testImplementation("org.springframework.boot:spring-boot-starter-test") {
-        exclude(module = "junit")
-    }
-    implementation("commons-httpclient:commons-httpclient:3.1")
-    testImplementation("org.springframework.security:spring-security-test")
-    testImplementation("org.junit.jupiter:junit-jupiter-api:5.3.1")
-    testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.3.1")
+    implementation(project(":framework"))
+    implementation(project(":jira-client"))
 }
 
 detekt {
@@ -64,24 +97,11 @@ detekt {
     }
 }
 
-tasks.withType<KotlinCompile> {
-    kotlinOptions {
-        freeCompilerArgs = listOf("-Xjsr305=strict")
-        jvmTarget = "11"
-    }
+tasks.withType<BootRun> {
+    main = ("ch.loewenfels.issuetrackingsync.app.IssueTrackingSyncApp")
 }
 
-tasks.withType<Test> {
-    useJUnitPlatform()
+tasks.withType<org.springframework.boot.gradle.tasks.bundling.BootJar> {
+    mainClassName = "ch.loewenfels.issuetrackingsync.app.IssueTrackingSyncApp"
 }
 
-tasks.withType<ShadowJar> {
-    archiveBaseName.set("app")
-    archiveClassifier.set("")
-    archiveVersion.set("")
-}
-
-tasks.withType<io.gitlab.arturbosch.detekt.Detekt> {
-    // Target version of the generated JVM bytecode. It is used for type resolution.
-    this.jvmTarget = "11"
-}
